@@ -29,7 +29,13 @@ from flask import (Flask, render_template_string, request,
                    jsonify, Response, stream_with_context)
 import instaloader
 import yt_dlp
-from yt_dlp.utils import ImpersonateTarget   # yt-dlp native impersonation
+try:
+    from yt_dlp.networking.impersonate import ImpersonateTarget
+except ImportError:
+    try:
+        from yt_dlp.utils import ImpersonateTarget
+    except ImportError:
+        ImpersonateTarget = None   # yt-dlp native impersonation
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024  # 1 GB
@@ -37,12 +43,14 @@ app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024  # 1 GB
 # Chrome versions to cycle through for impersonation
 CHROME_TARGETS = ["chrome120", "chrome110", "chrome107", "chrome104"]
 # yt-dlp ImpersonateTarget objects (used inside yt-dlp options)
-YT_IMPERSONATE_TARGETS = [
-    ImpersonateTarget("chrome", "120"),
-    ImpersonateTarget("chrome", "110"),
-    ImpersonateTarget("chrome", "107"),
-]
-
+if ImpersonateTarget:
+    YT_IMPERSONATE_TARGETS = [
+        ImpersonateTarget("chrome", "120"),
+        ImpersonateTarget("chrome", "110"),
+        ImpersonateTarget("chrome", "107"),
+    ]
+else:
+    YT_IMPERSONATE_TARGETS = [None]  # fallback — no impersonation target
 # ═══════════════════════════════════════════════════════════════
 # COOKIE FILE
 # ═══════════════════════════════════════════════════════════════
@@ -116,8 +124,9 @@ def make_yt_opts(strategy_args: dict,
         # ── curl_cffi Chrome impersonation inside yt-dlp ──────
         # This makes yt-dlp's HTTP requests use a real Chrome
         # TLS fingerprint — the single most effective bypass.
-        "impersonate": (impersonate_target
-                        or ImpersonateTarget("chrome", "120")),
+        # Only set impersonate if ImpersonateTarget is available
+        **({"impersonate": impersonate_target}
+           if impersonate_target and ImpersonateTarget else {}),
     }
     cookie = COOKIE_FILE or get_cookie_file()
     if cookie:
