@@ -74,24 +74,24 @@ COOKIE_FILE = get_cookie_file()
 
 
 def get_yt_opts(extra=None):
-    """Base yt-dlp options with cookie + anti-bot headers."""
+    """Base yt-dlp options — iOS client bypasses bot detection without cookies."""
     opts = {
         'quiet': True,
         'no_warnings': True,
-        'user_agent': (
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-            'AppleWebKit/537.36 (KHTML, like Gecko) '
-            'Chrome/125.0.0.0 Safari/537.36'
-        ),
-        'http_headers': {
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        },
+        # iOS player client — bypasses 'Sign in to confirm you're not a bot'
+        # This works because YouTube's iOS API doesn't have the same bot checks
         'extractor_args': {
-            'youtube': {'player_client': ['web', 'android']}
+            'youtube': {
+                'player_client': ['ios', 'web', 'android'],
+            }
         },
-        'socket_timeout': 30,
+        'socket_timeout': 60,
+        # Retry logic for unstable connections (Render free tier)
+        'retries': 5,
+        'fragment_retries': 5,
+        'file_access_retries': 3,
     }
+    # Still use cookies if available — they help with age-restricted videos
     cookie = COOKIE_FILE or get_cookie_file()
     if cookie:
         opts['cookiefile'] = cookie
